@@ -1,0 +1,16 @@
+{
+    "name": "libuv2kTransport",
+    "references": [
+        "GUID:1c6897b1b0ddb434c903e30f88310217",
+        "GUID:30817c1a0e6d646d99c048fc403f5979"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
