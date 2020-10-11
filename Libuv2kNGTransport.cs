@@ -40,9 +40,6 @@ namespace Mirror.Libu2kNG
         [Tooltip("Nagle Algorithm can be disabled by enabling NoDelay")]
         public bool NoDelay = true;
 
-        [Tooltip("Tick rate of processing libuv2k loop")]
-        [Range(1, 1000), SerializeField] private int _tickRate = 10; 
-
         [Header("Debug Options")]
         [SerializeField] private LogType _logType = LogType.Warning;
 
@@ -69,7 +66,7 @@ namespace Mirror.Libu2kNG
                 _server = null;
             }
 
-            _server = new Server(Port, _tickRate);
+            _server = new Server(Port);
 
             return Task.CompletedTask;
         }
@@ -81,7 +78,6 @@ namespace Mirror.Libu2kNG
         {
             _server?.Shutdown();
             _client?.Disconnect();
-            OnDestroy();
         }
 
         /// <summary>
@@ -110,7 +106,7 @@ namespace Mirror.Libu2kNG
         /// <exception>If connection cannot be established</exception>
         public override async Task<IConnection> ConnectAsync(Uri uri)
         {
-            _client = new Libuv2kConnection(NoDelay, _tickRate);
+            _client = new Libuv2kConnection(NoDelay);
 
             UriBuilder connection = new UriBuilder {Scheme = uri.Scheme, Host = uri.Host, Port = Port};
 
@@ -129,13 +125,9 @@ namespace Mirror.Libu2kNG
             {
                 while (!(_server is null))
                 {
-                    _server.QueuedConnections.TryDequeue(out TcpStream client);
-
-                    if (client != null)
+                    while(_server.QueuedConnections.TryDequeue(out Libuv2kConnection client))
                     {
-                        var libClient = new Libuv2kConnection(NoDelay, _tickRate, client);
-
-                        return libClient;
+                        return client;
                     }
 
                     await Task.Delay(1);

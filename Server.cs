@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using libuv2k;
 using libuv2k.Native;
-using UnityEngine;
 
 #endregion
 
@@ -17,7 +16,7 @@ namespace Mirror.Libuv2kNG
     {
         #region Fields
 
-        protected internal readonly ConcurrentQueue<TcpStream> QueuedConnections = new ConcurrentQueue<TcpStream>();
+        protected internal readonly ConcurrentQueue<Libuv2kConnection> QueuedConnections = new ConcurrentQueue<Libuv2kConnection>();
 
         // Libuv state
         //
@@ -31,7 +30,10 @@ namespace Mirror.Libuv2kNG
         // TODO what if we use one loop for both?
         private readonly Loop _serverLoop;
         private TcpStream _server;
-        private CancellationTokenSource _cancellationToken;
+        private readonly CancellationTokenSource _cancellationToken;
+        // libuv can be ticked multiple times per frame up to max so we don't
+        // deadlock
+        public const int LibuvMaxTicksPerFrame = 100;
 
         #endregion
 
@@ -40,18 +42,22 @@ namespace Mirror.Libuv2kNG
         /// <summary>
         ///     We must tick through to receive connection status.
         /// </summary>
-        private async void Tick(int tickRate)
+        private async void Tick()
         {
             // tick client
             while (_serverLoop != null && _server != null && !_server.IsClosing)
             {
                 // Run with UV_RUN_NOWAIT returns 0 when nothing to do, but we
                 // should avoid deadlocks via LibuvMaxTicksPerFrame
-                if (_serverLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                for (int i = 0; i < LibuvMaxTicksPerFrame; ++i)
                 {
+                    while (_serverLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                    {
+                        break;
+                    }
                 }
 
-                await Task.Delay(tickRate);
+                await Task.Delay(1);
             }
         }
 
@@ -74,15 +80,16 @@ namespace Mirror.Libuv2kNG
                 return;
             }
 
-            QueuedConnections.Enqueue(handle);
+            var newClient = new Libuv2kConnection(true, handle);
+
+            QueuedConnections.Enqueue(newClient);
         }
 
         /// <summary>
         ///     Initialize new <see cref="Server"/>.
         /// </summary>
         /// <param name="port">The port we want to bind listening connections on.</param>
-        /// <param name="tickRate">The rate at which we will delay before processing more data.</param>
-        public Server(int port, int tickRate)
+        public Server(int port)
         {
             _cancellationToken = new CancellationTokenSource();
 
@@ -90,7 +97,7 @@ namespace Mirror.Libuv2kNG
 
             ListenAsync(port);
 
-            _ = Task.Run(() => Tick(tickRate), _cancellationToken.Token);
+            _ = Task.Run(Tick, _cancellationToken.Token);
         }
 
         /// <summary>
@@ -119,9 +126,9 @@ namespace Mirror.Libuv2kNG
             if (_server != null)
             {
                 _cancellationToken.Cancel();
-                _serverLoop?.Dispose();
                 _server?.Dispose();
                 _server = null;
+                _serverLoop?.Dispose();
 
                 Libuv2kNGLogger.Log("libuv server: TCP stopped!");
             }

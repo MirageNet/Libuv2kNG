@@ -18,11 +18,15 @@ namespace Mirror.Libuv2kNG
     {
         #region Fields
 
-        private readonly ConcurrentQueue<byte[]> _queuedData = new ConcurrentQueue<byte[]>();
+        private readonly ConcurrentQueue<byte[]> _queuedIncomingData = new ConcurrentQueue<byte[]>();
+        private readonly ConcurrentQueue<byte[]> _queueOutgoingData = new ConcurrentQueue<byte[]>();
         private TcpStream _client;
         private readonly Loop _clientLoop;
         private TaskCompletionSource<Task> _connectedComplete;
         private readonly CancellationTokenSource _cancellationToken;
+        // libuv can be ticked multiple times per frame up to max so we don't
+        // deadlock
+        public const int LibuvMaxTicksPerFrame = 100;
 
         #endregion
 
@@ -32,9 +36,8 @@ namespace Mirror.Libuv2kNG
         ///     Initialize new <see cref="Libuv2kConnection"/>.
         /// </summary>
         /// <param name="noDelay"></param>
-        /// <param name="tickRate">The rate at which we will delay before processing more data.</param>
         /// <param name="client"></param>
-        public Libuv2kConnection(bool noDelay, int tickRate, TcpStream client = null)
+        public Libuv2kConnection(bool noDelay, TcpStream client = null)
         {
             _cancellationToken = new CancellationTokenSource();
 
@@ -43,17 +46,19 @@ namespace Mirror.Libuv2kNG
                 _clientLoop = new Loop();
                 _client = new TcpStream(_clientLoop);
 
-                _ = Task.Run(() => Tick(tickRate), _cancellationToken.Token);
+                _ = Task.Run(Tick, _cancellationToken.Token);
             }
             else
             {
                 _client = client;
 
                 // setup callbacks
-                _client.onMessage = OnLibuvClientMessage;
-                _client.onError = OnLibuvClientError;
-                _client.onClosed = OnLibuvClientClosed;
+                client.onMessage = OnLibuvClientMessage;
+                client.onError = OnLibuvClientError;
+                client.onClosed = OnLibuvClientClosed;
             }
+
+            _ = Task.Run(ProcessOutgoingMessages, _cancellationToken.Token);
 
             _client.NoDelay(noDelay);
         }
@@ -136,19 +141,37 @@ namespace Mirror.Libuv2kNG
         /// <summary>
         ///     We must tick through to receive connection status.
         /// </summary>
-        private async void Tick(int tickRate)
+        private async void Tick()
         {
             // tick client
             while (!(_clientLoop is null) && !(_client is null) && !_client.IsClosing)
             {
                 // Run with UV_RUN_NOWAIT returns 0 when nothing to do, but we
                 // should avoid deadlocks via LibuvMaxTicksPerFrame
-
-                if (_clientLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                for (int i = 0; i < LibuvMaxTicksPerFrame; ++i)
                 {
+                    while (_clientLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                    {
+                        break;
+                    }
                 }
 
-                await Task.Delay(tickRate);
+                await Task.Delay(1);
+            }
+        }
+
+        private async void ProcessOutgoingMessages()
+        {
+            while(!_cancellationToken.IsCancellationRequested)
+            {
+                while (_queueOutgoingData.TryDequeue(out byte[] outgoing))
+                {
+                    _client?.Send(new ArraySegment<byte>(outgoing));
+
+                    await Task.Delay(1);
+                }
+
+                await Task.Delay(1);
             }
         }
 
@@ -159,13 +182,13 @@ namespace Mirror.Libuv2kNG
         /// <param name="segment">The data that has come in with it.</param>
         private void OnLibuvClientMessage(TcpStream handle, ArraySegment<byte> segment)
         {
-            byte[] newData = new byte[segment.Count];
+            Libuv2kNGLogger.Log($"libuv client callback received: data= {BitConverter.ToString(segment.Array)}");
 
-            Array.Copy(segment.Array, segment.Offset, newData, 0, segment.Count);
+            byte[] incomingData = new byte[segment.Count];
 
-            Libuv2kNGLogger.Log($"libuv client callback received: data= {BitConverter.ToString(newData)}");
+            Array.Copy(segment.Array, segment.Offset, incomingData, 0, segment.Count);
 
-            _queuedData.Enqueue(newData);
+            _queuedIncomingData.Enqueue(incomingData);
         }
 
         /// <summary>
@@ -209,7 +232,11 @@ namespace Mirror.Libuv2kNG
 
             Libuv2kNGLogger.Log("Libuv2kConnection client: send data=" + BitConverter.ToString(data.Array));
 
-            _client?.Send(data);
+            byte[] outgoingData = new byte[data.Count];
+
+            Array.Copy(data.Array, data.Offset, outgoingData, 0, data.Count);
+
+            _queueOutgoingData.Enqueue(outgoingData);
 
             return Task.CompletedTask;
         }
@@ -225,7 +252,7 @@ namespace Mirror.Libuv2kNG
             {
                 while (!(_client is null) && !_cancellationToken.IsCancellationRequested)
                 {
-                    while (_queuedData.TryDequeue(out byte[] data))
+                    while (_queuedIncomingData.TryDequeue(out byte[] data))
                     {
                         buffer.SetLength(0);
 
@@ -255,10 +282,20 @@ namespace Mirror.Libuv2kNG
         {
             Libuv2kNGLogger.Log("libuv client: closed connection");
 
-            _connectedComplete?.TrySetCanceled();
             _cancellationToken.Cancel();
+            _connectedComplete?.TrySetCanceled();
             _clientLoop?.Dispose();
             _client?.CloseHandle();
+
+            while (_queuedIncomingData.TryDequeue(out _))
+            {
+                // do nothing   
+            }
+
+            while (_queueOutgoingData.TryDequeue(out _))
+            {
+                // do nothing   
+            }
         }
 
         /// <summary>
