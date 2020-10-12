@@ -77,7 +77,9 @@ namespace Mirror.Libu2kNG
         public override void Disconnect()
         {
             _server?.Shutdown();
+            _server = null;
             _client?.Disconnect();
+            _client = null;
         }
 
         /// <summary>
