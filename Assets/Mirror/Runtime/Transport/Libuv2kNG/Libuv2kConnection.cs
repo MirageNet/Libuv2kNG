@@ -6,8 +6,10 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using libuv2k;
 using libuv2k.Native;
+using Mirror.Libu2kNG;
 using UnityEngine;
 
 #endregion
@@ -18,11 +20,11 @@ namespace Mirror.Libuv2kNG
     {
         #region Fields
 
-        private readonly ConcurrentQueue<byte[]> _queuedIncomingData = new ConcurrentQueue<byte[]>();
-        private readonly ConcurrentQueue<byte[]> _queueOutgoingData = new ConcurrentQueue<byte[]>();
+        private readonly ConcurrentQueue<Message> _queuedIncomingData = new ConcurrentQueue<Message>();
+        private readonly ConcurrentQueue<Message> _queueOutgoingData = new ConcurrentQueue<Message>();
         private TcpStream _client;
         private readonly Loop _clientLoop;
-        private TaskCompletionSource<Task> _connectedComplete;
+        private UniTaskCompletionSource _connectedComplete;
         private readonly CancellationTokenSource _cancellationToken;
         // libuv can be ticked multiple times per frame up to max so we don't
         // deadlock
@@ -46,7 +48,7 @@ namespace Mirror.Libuv2kNG
                 _clientLoop = new Loop();
                 _client = new TcpStream(_clientLoop);
 
-                _ = Task.Run(Tick, _cancellationToken.Token);
+                _ = UniTask.RunOnThreadPool(Tick, false, _cancellationToken.Token);
             }
             else
             {
@@ -58,7 +60,7 @@ namespace Mirror.Libuv2kNG
                 client.onClosed = OnLibuvClientClosed;
             }
 
-            _ = Task.Run(ProcessOutgoingMessages, _cancellationToken.Token);
+            _ = UniTask.RunOnThreadPool(ProcessOutgoingMessages, false, _cancellationToken.Token);
 
             _client.NoDelay(noDelay);
         }
@@ -68,7 +70,7 @@ namespace Mirror.Libuv2kNG
         /// </summary>
         /// <param name="uri">The server <see cref="Uri"/> to connect to.</param>
         /// <returns>Returns back a new <see cref="Libuv2kConnection"/> when connected or null when failed.</returns>
-        public async Task<IConnection> ConnectAsync(Uri uri)
+        public async UniTask<IConnection> ConnectAsync(Uri uri)
         {
             try
             {
@@ -88,12 +90,11 @@ namespace Mirror.Libuv2kNG
                     Libuv2kNGLogger.Log("Libuv client connect: no IPv4 found for hostname: " + uri.Host, LogType.Warning);
                 }
 
-                _connectedComplete = new TaskCompletionSource<Task>();
-                Task connectedCompleteTask = _connectedComplete.Task;
+                _connectedComplete = new UniTaskCompletionSource();
+                UniTask connectedCompleteTask = _connectedComplete.Task;
 
-                while (await Task.WhenAny(connectedCompleteTask,
-                           Task.Delay(TimeSpan.FromSeconds(Math.Max(1, 30)))) !=
-                       connectedCompleteTask)
+                while (await UniTask.WhenAny(connectedCompleteTask,
+                           UniTask.Delay(TimeSpan.FromSeconds(Math.Max(1, 30)))) != 0)
                 {
                     Disconnect();
 
@@ -135,44 +136,54 @@ namespace Mirror.Libuv2kNG
                 return;
             }
 
-            _connectedComplete.SetResult(_connectedComplete.Task);
+            _connectedComplete.TrySetResult();
         }
 
         /// <summary>
         ///     We must tick through to receive connection status.
         /// </summary>
-        private async void Tick()
+        private UniTask Tick()
         {
             // tick client
-            while (!(_clientLoop is null) && !(_client is null) && !_client.IsClosing)
+            while (!(_clientLoop is null) && !(_client is null))
             {
                 // Run with UV_RUN_NOWAIT returns 0 when nothing to do, but we
                 // should avoid deadlocks via LibuvMaxTicksPerFrame
                 for (int i = 0; i < LibuvMaxTicksPerFrame; ++i)
                 {
-                    while (_clientLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                    if (_clientLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
                     {
+                        Debug.Log("Client libuv ticked only " + i + " times");
                         break;
                     }
                 }
-
-                await Task.Delay(1);
             }
+
+            Libuv2kNGLogger.Log("Shutting down tick task.");
+
+            return UniTask.CompletedTask;
         }
 
-        private async void ProcessOutgoingMessages()
+        private UniTask ProcessOutgoingMessages()
         {
             while(!_cancellationToken.IsCancellationRequested)
             {
-                while (_queueOutgoingData.TryDequeue(out byte[] outgoing))
+                for (int messageIndex = 0; messageIndex < _queueOutgoingData.Count; messageIndex++)
                 {
-                    _client?.Send(new ArraySegment<byte>(outgoing));
+                    if(_queueOutgoingData.TryDequeue(out Message outgoing))
+                    {
+                        _client?.Send(new ArraySegment<byte>(outgoing.Data));
+                    }
 
-                    await Task.Delay(1);
+                    UniTask.Delay(1);
                 }
 
-                await Task.Delay(1);
+                UniTask.Delay(1);
             }
+
+            Libuv2kNGLogger.Log("Shutting down processing task");
+
+            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -184,11 +195,14 @@ namespace Mirror.Libuv2kNG
         {
             Libuv2kNGLogger.Log($"libuv client callback received: data= {BitConverter.ToString(segment.Array)}");
 
-            byte[] incomingData = new byte[segment.Count];
+            byte[] data = new byte[segment.Count];
 
-            Array.Copy(segment.Array, segment.Offset, incomingData, 0, segment.Count);
+            Array.Copy(segment.Array, segment.Offset, data, 0, segment.Count);
 
-            _queuedIncomingData.Enqueue(incomingData);
+            _queuedIncomingData.Enqueue(new Message
+            {
+                Data = data
+            });
         }
 
         /// <summary>
@@ -226,19 +240,22 @@ namespace Mirror.Libuv2kNG
         /// </summary>
         /// <param name="data">The data to send through.</param>
         /// <returns></returns>
-        public Task SendAsync(ArraySegment<byte> data)
+        public UniTask SendAsync(ArraySegment<byte> data)
         {
-            if (_client is null || _client.IsClosing || _cancellationToken.IsCancellationRequested) return null;
+            if (_client is null || _client.IsClosing || _cancellationToken.IsCancellationRequested) return UniTask.CompletedTask;
 
             Libuv2kNGLogger.Log("Libuv2kConnection client: send data=" + BitConverter.ToString(data.Array));
 
-            byte[] outgoingData = new byte[data.Count];
+            byte[] buffer = new byte[data.Count];
 
-            Array.Copy(data.Array, data.Offset, outgoingData, 0, data.Count);
+            Array.Copy(data.Array, data.Offset, buffer, 0, data.Count);
 
-            _queueOutgoingData.Enqueue(outgoingData);
+            _queueOutgoingData.Enqueue(new Message
+            {
+                Data = buffer
+            });
 
-            return Task.CompletedTask;
+            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -246,25 +263,28 @@ namespace Mirror.Libuv2kNG
         /// </summary>
         /// <param name="buffer">buffer where the message will be written</param>
         /// <returns>true if we got a message, false if we got disconnected</returns>
-        public async Task<bool> ReceiveAsync(MemoryStream buffer)
+        public async UniTask<bool> ReceiveAsync(MemoryStream buffer)
         {
             try
             {
-                while (!(_client is null) && !_cancellationToken.IsCancellationRequested)
+                while (!_cancellationToken.IsCancellationRequested)
                 {
-                    while (_queuedIncomingData.TryDequeue(out byte[] data))
+                    Libuv2kNGTransport.ReceiveQueue =
+                        $"<color=green> Receiving queue: {_queuedIncomingData.Count} </color>";
+
+                    while (_queuedIncomingData.TryDequeue(out Message message))
                     {
+                        Libuv2kNGLogger.Log(
+                            $"Libuv2kConnection processing message: {BitConverter.ToString(message.Data)}");
+
                         buffer.SetLength(0);
 
-                        Libuv2kNGLogger.Log(
-                            $"Libuv2kConnection processing message: {BitConverter.ToString(data)}");
-
-                        await buffer.WriteAsync(data, 0, data.Length);
+                        buffer.Write(message.Data, 0, message.Data.Length);
 
                         return true;
                     }
 
-                    await Task.Delay(1);
+                    await UniTask.Delay(1);
                 }
 
                 return false;
@@ -284,7 +304,6 @@ namespace Mirror.Libuv2kNG
 
             _cancellationToken.Cancel();
             _connectedComplete?.TrySetCanceled();
-            _clientLoop?.Dispose();
             _client?.CloseHandle();
 
             while (_queuedIncomingData.TryDequeue(out _))
@@ -296,6 +315,8 @@ namespace Mirror.Libuv2kNG
             {
                 // do nothing   
             }
+
+            _clientLoop?.Dispose();
         }
 
         /// <summary>

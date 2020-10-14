@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using libuv2k;
 using Mirror.Libuv2kNG;
 using UnityEngine;
@@ -58,7 +59,7 @@ namespace Mirror.Libu2kNG
         /// </summary>
         /// <exception>If we cannot start the transport</exception>
         /// <returns></returns>
-        public override Task ListenAsync()
+        public override UniTask ListenAsync()
         {
             if (_server != null)
             {
@@ -68,7 +69,7 @@ namespace Mirror.Libu2kNG
 
             _server = new Server(Port);
 
-            return Task.CompletedTask;
+            return UniTask.CompletedTask;
         }
 
         /// <summary>
@@ -106,7 +107,7 @@ namespace Mirror.Libu2kNG
         /// <param name="uri">address of the server to connect to</param>
         /// <returns>The connection to the server</returns>
         /// <exception>If connection cannot be established</exception>
-        public override async Task<IConnection> ConnectAsync(Uri uri)
+        public override async UniTask<IConnection> ConnectAsync(Uri uri)
         {
             _client = new Libuv2kConnection(NoDelay);
 
@@ -121,7 +122,7 @@ namespace Mirror.Libu2kNG
         ///     then you get the connection to the client
         /// </summary>
         /// <returns>The connection to a client</returns>
-        public override async Task<IConnection> AcceptAsync()
+        public override async UniTask<IConnection> AcceptAsync()
         {
             try
             {
@@ -132,7 +133,7 @@ namespace Mirror.Libu2kNG
                         return client;
                     }
 
-                    await Task.Delay(1);
+                    await UniTask.Delay(1);
                 }
 
                 return null;

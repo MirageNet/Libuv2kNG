@@ -5,8 +5,10 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using libuv2k;
 using libuv2k.Native;
+using UnityEngine;
 
 #endregion
 
@@ -45,19 +47,19 @@ namespace Mirror.Libuv2kNG
         private async void Tick()
         {
             // tick client
-            while (_serverLoop != null && _server != null && !_server.IsClosing)
+            while (_serverLoop != null && _server != null)
             {
                 // Run with UV_RUN_NOWAIT returns 0 when nothing to do, but we
                 // should avoid deadlocks via LibuvMaxTicksPerFrame
                 for (int i = 0; i < LibuvMaxTicksPerFrame; ++i)
                 {
-                    while (_serverLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
+                    if (_serverLoop.Run(uv_run_mode.UV_RUN_NOWAIT) == 0)
                     {
                         break;
                     }
                 }
 
-                await Task.Delay(1);
+                await UniTask.Delay(1);
             }
         }
 
@@ -97,7 +99,7 @@ namespace Mirror.Libuv2kNG
 
             ListenAsync(port);
 
-            _ = Task.Run(Tick, _cancellationToken.Token);
+            _ = UniTask.RunOnThreadPool(Tick, false, _cancellationToken.Token);
         }
 
         /// <summary>
@@ -128,9 +130,10 @@ namespace Mirror.Libuv2kNG
                 _cancellationToken.Cancel();
                 _server?.Dispose();
                 _server = null;
-                _serverLoop?.Dispose();
 
                 Libuv2kNGLogger.Log("libuv server: TCP stopped!");
+
+                _serverLoop?.Dispose();
             }
         }
 
