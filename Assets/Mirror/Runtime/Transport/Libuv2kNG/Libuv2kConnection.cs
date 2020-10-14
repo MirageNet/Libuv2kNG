@@ -5,11 +5,9 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using libuv2k;
 using libuv2k.Native;
-using Mirror.Libu2kNG;
 using UnityEngine;
 
 #endregion
@@ -269,9 +267,6 @@ namespace Mirror.Libuv2kNG
             {
                 while (!_cancellationToken.IsCancellationRequested)
                 {
-                    Libuv2kNGTransport.ReceiveQueue =
-                        $"<color=green> Receiving queue: {_queuedIncomingData.Count} </color>";
-
                     while (_queuedIncomingData.TryDequeue(out Message message))
                     {
                         Libuv2kNGLogger.Log(
