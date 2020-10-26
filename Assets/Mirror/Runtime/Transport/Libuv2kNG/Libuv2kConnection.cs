@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
+using System.Security.Authentication.ExtendedProtection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using libuv2k;
@@ -234,11 +235,12 @@ namespace Mirror.Libuv2kNG
         #region Implementation of IConnection
 
         /// <summary>
-        ///     Send data through the connection.
+        ///     Send data with channel specific settings. (NOOP atm until mirrorng links it)
         /// </summary>
-        /// <param name="data">The data to send through.</param>
+        /// <param name="data">The data to be sent.</param>
+        /// <param name="channel">The channel to send it on.</param>
         /// <returns></returns>
-        public UniTask SendAsync(ArraySegment<byte> data)
+        public UniTask SendAsync(ArraySegment<byte> data, int channel)
         {
             if (_client is null || _client.IsClosing || _cancellationToken.IsCancellationRequested) return UniTask.CompletedTask;
 
@@ -250,7 +252,8 @@ namespace Mirror.Libuv2kNG
 
             _queueOutgoingData.Enqueue(new Message
             {
-                Data = buffer
+                Data = buffer,
+                Channel = channel
             });
 
             return UniTask.CompletedTask;
@@ -261,7 +264,7 @@ namespace Mirror.Libuv2kNG
         /// </summary>
         /// <param name="buffer">buffer where the message will be written</param>
         /// <returns>true if we got a message, false if we got disconnected</returns>
-        public async UniTask<bool> ReceiveAsync(MemoryStream buffer)
+        public async UniTask<int> ReceiveAsync(MemoryStream buffer)
         {
             try
             {
@@ -276,17 +279,17 @@ namespace Mirror.Libuv2kNG
 
                         buffer.Write(message.Data, 0, message.Data.Length);
 
-                        return true;
+                        return message.Channel;
                     }
 
                     await UniTask.Delay(1);
                 }
 
-                return false;
+                throw new EndOfStreamException();
             }
-            catch (ObjectDisposedException)
+            catch (EndOfStreamException)
             {
-                return false;
+                throw new EndOfStreamException();
             }
         }
 
