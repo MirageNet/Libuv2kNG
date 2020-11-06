@@ -16,8 +16,6 @@ namespace Mirror.Libuv2kNG
     {
         #region Fields
 
-        protected internal readonly ConcurrentQueue<Libuv2kConnection> QueuedConnections = new ConcurrentQueue<Libuv2kConnection>();
-
         // Libuv state
         //
         // IMPORTANT: do NOT create new Loop & Client here, otherwise a loop is
@@ -34,6 +32,8 @@ namespace Mirror.Libuv2kNG
         // libuv can be ticked multiple times per frame up to max so we don't
         // deadlock
         public const int LibuvMaxTicksPerFrame = 100;
+
+        private readonly Transport _transport;
 
         #endregion
 
@@ -82,20 +82,23 @@ namespace Mirror.Libuv2kNG
 
             var newClient = new Libuv2kConnection(true, handle);
 
-            QueuedConnections.Enqueue(newClient);
+            _transport.Connected.Invoke(newClient);
         }
 
         /// <summary>
         ///     Initialize new <see cref="Server"/>.
         /// </summary>
         /// <param name="port">The port we want to bind listening connections on.</param>
-        public Server(int port)
+        /// <param name="transport">Transport to attach to.</param>
+        public Server(int port, Transport transport)
         {
             _cancellationToken = new CancellationTokenSource();
 
             _serverLoop = new Loop();
 
             ListenAsync(port);
+
+            _transport = transport;
 
             _ = UniTask.RunOnThreadPool(Tick, false, _cancellationToken.Token);
         }

@@ -45,6 +45,7 @@ namespace Mirror.Libu2kNG
 
         private Server _server;
         private Libuv2kConnection _client;
+        private AutoResetUniTaskCompletionSource _listenCompletionSource;
 
         #endregion
 
@@ -66,9 +67,11 @@ namespace Mirror.Libu2kNG
                 _server = null;
             }
 
-            _server = new Server(Port);
+            _server = new Server(Port, this);
 
-            return UniTask.CompletedTask;
+            _listenCompletionSource = AutoResetUniTaskCompletionSource.Create();
+
+            return _listenCompletionSource.Task;
         }
 
         /// <summary>
@@ -76,8 +79,11 @@ namespace Mirror.Libu2kNG
         /// </summary>
         public override void Disconnect()
         {
+            _listenCompletionSource?.TrySetResult();
+
             _server?.Shutdown();
             _server = null;
+
             _client?.Disconnect();
             _client = null;
         }
@@ -113,35 +119,6 @@ namespace Mirror.Libu2kNG
             UriBuilder connection = new UriBuilder {Scheme = uri.Scheme, Host = uri.Host, Port = Port};
 
             return await _client.ConnectAsync(connection.Uri);
-        }
-
-        /// <summary>
-        ///     Accepts a connection from a client.
-        ///     After ListenAsync completes,  clients will queue up until you call AcceptAsync
-        ///     then you get the connection to the client
-        /// </summary>
-        /// <returns>The connection to a client</returns>
-        public override async UniTask<IConnection> AcceptAsync()
-        {
-            try
-            {
-                while (!(_server is null))
-                {
-                    while(_server.QueuedConnections.TryDequeue(out Libuv2kConnection client))
-                    {
-                        return client;
-                    }
-
-                    await UniTask.Delay(1);
-                }
-
-                return null;
-            }
-            catch (ObjectDisposedException)
-            {
-                // expected,  the connection was closed
-                return null;
-            }
         }
 
         /// <summary>
