@@ -101,6 +101,8 @@ namespace Mirror.Libuv2kNG
             _transport = transport;
 
             _ = UniTask.RunOnThreadPool(Tick, false, _cancellationToken.Token);
+
+            _transport.Started.Invoke();
         }
 
         /// <summary>
