@@ -4,7 +4,7 @@
 [![Forum](https://img.shields.io/badge/forum-brightgreen.svg)](https://forum.unity.com/threads/mirror-networking-for-unity-aka-hlapi-community-edition.425437/)
 [![Discord](https://img.shields.io/discord/343440455738064897.svg)](https://discordapp.com/invite/N9QVxbM)
 [![release](https://img.shields.io/github/release/MirrorNG/Libuv2kNG.svg)](https://github.com/MirrorNG/Libuv2kNG/releases/latest)
-[![openupm](https://img.shields.io/npm/v/com.mirrorng.libub2k?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.mirrorng.libuv2k/)
+[![openupm](https://img.shields.io/npm/v/com.mirrorng.libuv2k?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.mirrorng.libuv2k/)
 [![GitHub issues](https://img.shields.io/github/issues/MirrorNG/Libuv2kNG.svg)](https://github.com/MirrorNG/Libuv2kNG/issues)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MirrorNG/Libuv2kNG.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
 [![Build](https://github.com/MirrorNG/Libuv2kNG/workflows/CI/badge.svg)](https://github.com/MirrorNG/Libuv2kNG/actions?query=workflow%3ACI)
