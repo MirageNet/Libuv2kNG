@@ -7,6 +7,7 @@
 [![openupm](https://img.shields.io/npm/v/com.mirrorng.libub2k?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.mirrorng.libuv2k/)
 [![GitHub issues](https://img.shields.io/github/issues/MirrorNG/Libuv2kNG.svg)](https://github.com/MirrorNG/Libuv2kNG/issues)
 ![GitHub last commit](https://img.shields.io/github/last-commit/MirrorNG/Libuv2kNG.svg) ![MIT Licensed](https://img.shields.io/badge/license-MIT-green.svg)
+[![Build](https://github.com/MirrorNG/Libuv2kNG/workflows/CI/badge.svg)](https://github.com/MirrorNG/Libuv2kNG/actions?query=workflow%3ACI)
 
 # Libuv2kNG
 
