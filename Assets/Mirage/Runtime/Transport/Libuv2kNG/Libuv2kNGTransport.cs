@@ -5,12 +5,12 @@ using System.Collections.Generic;
 using System.Net;
 using Cysharp.Threading.Tasks;
 using libuv2k;
-using Mirror.Libuv2kNG;
+using Mirage.Libuv2kNG;
 using UnityEngine;
 
 #endregion
 
-namespace Mirror.Libu2kNG
+namespace Mirage.Libu2kNG
 {
     public class Libuv2kNGTransport : Transport
     {

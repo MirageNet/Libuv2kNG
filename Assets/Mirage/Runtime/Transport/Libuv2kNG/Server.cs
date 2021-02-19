@@ -10,7 +10,7 @@ using libuv2k.Native;
 
 #endregion
 
-namespace Mirror.Libuv2kNG
+namespace Mirage.Libuv2kNG
 {
     public class Server
     {

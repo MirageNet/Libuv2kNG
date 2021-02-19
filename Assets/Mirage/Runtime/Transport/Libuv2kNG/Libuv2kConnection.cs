@@ -12,7 +12,7 @@ using UnityEngine;
 
 #endregion
 
-namespace Mirror.Libuv2kNG
+namespace Mirage.Libuv2kNG
 {
     public class Libuv2kConnection : IConnection
     {

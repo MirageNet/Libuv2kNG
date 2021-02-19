@@ -4,7 +4,7 @@ using System;
 
 #endregion
 
-namespace Mirror.Libuv2kNG
+namespace Mirage.Libuv2kNG
 {
     public struct Message
     {
