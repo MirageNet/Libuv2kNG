@@ -1,0 +1,16 @@
+{
+    "name": "com.miragenet.libuv2k",
+    "displayName": "Mirage Libuv2kNG",
+    "version": "0.0.1",
+    "unity": "2020.1",
+    "description": "Tcp transport for Mirage",
+    "author": "Mirage",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/MirageNet/Libuv2kNG.git"
+    },
+    "dependencies": {
+        "com.cysharp.unitask": "2.0.36",
+        "com.miragenet.mirage": "54.1.1"
+    }
+}
