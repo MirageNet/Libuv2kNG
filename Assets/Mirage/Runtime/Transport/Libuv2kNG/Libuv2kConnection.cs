@@ -239,9 +239,9 @@ namespace Mirage.Libuv2kNG
         /// <param name="data">The data to be sent.</param>
         /// <param name="channel">The channel to send it on.</param>
         /// <returns></returns>
-        public UniTask SendAsync(ArraySegment<byte> data, int channel)
+        public void Send(ArraySegment<byte> data, int channel)
         {
-            if (_client is null || _client.IsClosing || _cancellationToken.IsCancellationRequested) return UniTask.CompletedTask;
+            if (_client is null || _client.IsClosing || _cancellationToken.IsCancellationRequested) return;
 
             Libuv2kNGLogger.Log("Libuv2kConnection client: send data=" + BitConverter.ToString(data.Array));
 
@@ -255,7 +255,7 @@ namespace Mirage.Libuv2kNG
                 Channel = channel
             });
 
-            return UniTask.CompletedTask;
+            return;
         }
 
         /// <summary>
