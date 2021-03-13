@@ -1,3 +1,23 @@
+# [1.0.0](https://github.com/MirageNet/Libuv2kNG/compare/v0.0.3...v1.0.0) (2021-03-13)
+
+
+### Bug Fixes
+
+* readme ([0869569](https://github.com/MirageNet/Libuv2kNG/commit/0869569fce7b681d69c6585166eff42f90e357dd))
+* readme ([01e5080](https://github.com/MirageNet/Libuv2kNG/commit/01e50804456ca57b205c5aae2b31c5ee4e006d1f))
+
+
+### Code Refactoring
+
+* use Send instead of SendAsync ([5fc55fe](https://github.com/MirageNet/Libuv2kNG/commit/5fc55fe0c803ce3b6358e5817e06b63d5261e6fa))
+
+
+### BREAKING CHANGES
+
+* Compatibility with Mirage 74.0.0+
+
+Signed-off-by: dragonslaya <steve.s@bigredplanetgames.com>
+
 ## [0.0.3](https://github.com/MirageNet/Libuv2kNG/compare/v0.0.2...v0.0.3) (2021-02-19)
 
 
