@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/MirageNet/Libuv2kNG/compare/v1.0.0...v1.0.1) (2021-03-13)
+
+
+### Bug Fixes
+
+* fixed all changes for newest libuv2k v1.19 ([824eae5](https://github.com/MirageNet/Libuv2kNG/commit/824eae5709d3e52a4eb06396896356b8ca2ea773))
+
 # [1.0.0](https://github.com/MirageNet/Libuv2kNG/compare/v0.0.3...v1.0.0) (2021-03-13)
 
 
