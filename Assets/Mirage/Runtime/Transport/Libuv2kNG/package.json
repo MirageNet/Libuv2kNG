@@ -1,7 +1,7 @@
 {
     "name": "com.miragenet.libuv2k",
     "displayName": "Mirage Libuv2kNG",
-    "version": "0.0.3",
+    "version": "1.0.0",
     "unity": "2020.1",
     "description": "Tcp transport for Mirage",
     "author": "Mirage",
