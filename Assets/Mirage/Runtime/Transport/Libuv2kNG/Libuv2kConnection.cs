@@ -81,7 +81,8 @@ namespace Mirage.Libuv2kNG
 
                     Libuv2kNGLogger.Log("Libuv client connecting to: " + address + ":" + uri.Port);
 
-                    _client.ConnectTo(localEndPoint, remoteEndPoint, ConnectedAction);
+                    _client.onClientConnect = ConnectedAction;
+                    _client.ConnectTo(localEndPoint, remoteEndPoint);
                 }
                 else
                 {
@@ -129,7 +130,7 @@ namespace Mirage.Libuv2kNG
             {
                 Libuv2kNGLogger.Log($"libuv client callback: client error {error}", LogType.Error);
 
-                handle.CloseHandle();
+                handle.Dispose();
 
                 return;
             }
@@ -212,7 +213,7 @@ namespace Mirage.Libuv2kNG
         {
             Libuv2kNGLogger.Log($"libuv client callback: read error {error}", LogType.Error);
 
-            handle.CloseHandle();
+            handle.Dispose();
         }
 
         /// <summary>
@@ -301,7 +302,7 @@ namespace Mirage.Libuv2kNG
 
             _cancellationToken.Cancel();
             _connectedComplete?.TrySetCanceled();
-            _client?.CloseHandle();
+            _client?.Dispose();
 
             while (_queuedIncomingData.TryDequeue(out _))
             {

@@ -75,7 +75,7 @@ namespace Mirage.Libuv2kNG
             {
                 Libuv2kNGLogger.Log($"libuv server: client connection failed {error}");
 
-                handle.CloseHandle();
+                handle.Dispose();
 
                 return;
             }
@@ -118,7 +118,8 @@ namespace Mirage.Libuv2kNG
 
             _server = new TcpStream(_serverLoop);
             _server.SimultaneousAccepts(true);
-            _server.Listen(endPoint, OnLibuvServerConnected);
+            _server.onServerConnect = OnLibuvServerConnected;
+            _server.Listen(endPoint);
 
             Libuv2kNGLogger.Log("libuv server: TCP started!");
         }

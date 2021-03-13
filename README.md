@@ -12,7 +12,7 @@
 
 This is a port of vis2k libuv2k for mirage. You still need to be a subscriber to get the files from vis2k. This transport code does not work without the rest of the files from mirage subscription.
 
-Remove or rename the #IFDEF for Mirage in LibuvUtils.cs
+Remove or rename the #IFDEF for Mirage in LibuvUtils.cs and rename namespace to mirrage
 
 ## Installation
 The preferred installation method is Unity Package manager.
